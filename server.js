@@ -10,13 +10,8 @@ const app    = express();
 const PORT   = process.env.PORT || 3000;
 const SECRET = process.env.JWT_SECRET;
 
-if (!SECRET) {
-  console.error('❌ JWT_SECRET belum diset di environment variable. Server dihentikan.');
-  process.exit(1);
-}
-if (!process.env.DATABASE_URL) {
-  console.error('❌ DATABASE_URL belum diset di environment variable. Server dihentikan.');
-  process.exit(1);
+if (!SECRET || !process.env.DATABASE_URL) {
+  console.error('❌ ERROR: JWT_SECRET atau DATABASE_URL belum diset di Vercel Environment Variables.');
 }
 
 // ── Middleware ──
@@ -160,13 +155,20 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-initDb()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`\n🚀 MyARG Server berjalan di port ${PORT}`);
+if (process.env.VERCEL) {
+  // Di lingkungan Vercel Serverless, jalankan initDb secara asinkron
+  // lalu langsung mengekspor app agar Vercel dapat menerimanya
+  initDb().catch(console.error);
+  module.exports = app;
+} else {
+  initDb()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`\n🚀 MyARG Server berjalan di port ${PORT}`);
+      });
+    })
+    .catch(err => {
+      console.error('❌ Gagal inisialisasi database:', err);
+      process.exit(1);
     });
-  })
-  .catch(err => {
-    console.error('❌ Gagal inisialisasi database:', err);
-    process.exit(1);
-  });
+}
